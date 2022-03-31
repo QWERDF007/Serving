@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+message Request {
+  string id = 1;
+  string logid = 2;
+  repeated bytes data = 3;
+}
+
+message Response {
+  string id = 1;
+  string logid = 2;
+  int32 error_no = 3;
+  string error_msg = 4;
+  repeated bytes data = 5;
+}
+
+service PipelineService {
+  rpc inference(Request) returns (Response) {};
+}
