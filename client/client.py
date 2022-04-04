@@ -27,7 +27,7 @@ class Client(object):
 
 if __name__ == "__main__":
     _LOGGER.debug("Client entry")
-    init_logger("Client", fpath="C:/Users/wt/Desktop/client.log", mode='w')
+    init_logger("Client", fpath="C:/Users/xf/Desktop/client2.log", mode='w')
     set_logger_level("Client", level=logging.DEBUG)
     client = Client()
     client.start()
