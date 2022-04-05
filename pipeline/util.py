@@ -97,6 +97,12 @@ class ProcessIdGenerator(UnsafeIdGenerator):
 
 def PipelineProcSyncManager():
     """
+    创建进程管理器，注册一个优先级队列。
+    multiprocessing.Queue 中没 PriorityQueue，
+    通过本方法使得可在多进程间访问优先级队列。
+    但是本方法在 Windows 平台下无法使用，
+    会报错无法 pickle 本地对象 SyncManager
+
     add PriorityQueue into SyncManager, see more:
     https://stackoverflow.com/questions/25324560/strange-queue-priorityqueue-behaviour-with-multiprocessing-in-python-2-7-6?answertab=active#tab-top
     """
