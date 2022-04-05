@@ -4,6 +4,8 @@ import os.path
 import threading
 
 import flask
+from op.operator import RequestOp, ResponseOp
+from op.base_op import ClsOp
 from utils.logger import init_logger, get_logger, set_logger_level
 from pipeline.pipeline_server import PipelineServer
 
@@ -13,7 +15,7 @@ _LOGGER = get_logger()
 def server_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--conf', type=str, metavar='PATH', help='path to server yml conf')
-    parser.add_argument('--logs-dir', type=str, metavar='DIR', default='./', help='directory to save logs')
+    parser.add_argument('--logs-dir', type=str, metavar='DIR', default='./logs', help='directory to save logs')
     parser.add_argument('--log-mode', type=str, metavar='MODE', default='w', help='mode of log file')
     parser.add_argument('--log-level', type=int, metavar='LEVEL', default=logging.DEBUG,
                         choices=[0, 10, 20, 30, 40, 50],
@@ -55,7 +57,10 @@ class Server(object):
         pass
 
     def _init_ops(self):
-        pass
+        read_op = RequestOp()
+        rec_op = ClsOp(name="rec", input_ops=[read_op])
+        response_op = ResponseOp(input_ops=[rec_op])
+        return response_op
 
     def run_server(self):
         self._server.run_server()
