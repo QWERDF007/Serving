@@ -82,6 +82,9 @@ class DAGExecutor(object):
         # log_id: 跟踪业务请求，可以为空，不唯一
         base_counter = 0
         gen_id_step = 1
+        if build_dag_each_worker:
+            base_counter = worker_idx
+            gen_id_step = server_worker_num
         self._id_generator = ThreadIdGenerator(
             max_id=1000000000000000000,
             base_counter=base_counter,
@@ -319,8 +322,7 @@ class DAGExecutor(object):
             try:
                 if req_channeldata is None:
                     _LOGGER.critical("(data_id={} log_id={}) req_channeldata is None".format(data_id, log_id))
-                if not isinstance(self._in_channel,
-                                  (ThreadChannel, ProcessChannel)):
+                if not isinstance(self._in_channel, (ThreadChannel, ProcessChannel)):
                     _LOGGER.critical(
                         "(data_id={} log_id={})[DAG Executor] Failed to "
                         "set in_channel: in_channel must be Channel type, but get {}".format(
@@ -500,7 +502,7 @@ class DAG(object):
                 name=name_gen.next(),
                 maxsize=self._channel_size,
                 channel_recv_first_arrive=self._channel_recv_first_arrive)
-        _LOGGER.debug("[DAG] Generate channel: {}".format(channel.name))
+        _LOGGER.debug("[DAG] Generate channel: {} {}".format(channel.name, channel))
         return channel
 
     def _gen_virtual_op(self, name_gen):
@@ -695,7 +697,7 @@ class DAG(object):
         output_channel = self._gen_channel(channel_name_gen)
         channels.append(output_channel)
         last_op.add_output_channel(output_channel)
-        _LOGGER.info("last op:{} add output channel".format(last_op.name))
+        _LOGGER.info("last op:{} add output channel {} {}".format(last_op.name, output_channel.name, output_channel))
 
         pack_func, unpack_func = None, None
         pack_func = response_op.pack_response_package

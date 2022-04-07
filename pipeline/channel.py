@@ -14,7 +14,7 @@ import numpy as np
 from pipeline.error_catch import CustomExceptionCode as ChannelDataErrCode
 from utils.logger import get_logger, set_logger_level
 
-_LOGGER = get_logger()
+_LOGGER = get_logger("Serving")
 
 
 class ChannelDataType(enum.Enum):
@@ -510,9 +510,10 @@ class ProcessChannel(object):
 
         if resp is not None:
             list_values = list(resp.values())
-            _LOGGER.debug(
-                self._log("(data_id={} log_id={}) Op({}) Got data from output_buffer, time:{}".format(
+            _LOGGER.debug(self._log("(data_id={} log_id={}) Op({}) Got data from output_buffer, time:{}".format(
                     list_values[0].id, list_values[0].log_id, op_name, time.time())))
+
+        _LOGGER.debug("[ProcessChannel] front() resp:\n{}".format(resp))
         return resp
 
     def stop(self):
@@ -606,6 +607,19 @@ class ThreadChannel(Queue.PriorityQueue):
         _LOGGER.debug(self._log("Succ add a consumer: {}".format(op_name)))
 
     def push(self, channeldata: ChannelData, op_name=None):
+        """
+        向队列中 put channeldata。
+        队列中的数据格式为 (data_id, {op_name: channeldata})
+        若有多个生产者，则在 input buffer 缓存数据，
+        直到同一 data_id 的全部数据准备完才向队列 put 数据
+
+        Args:
+            channeldata:
+            op_name:
+
+        Returns:
+
+        """
         _LOGGER.debug(self._log("(data_id={} log_id={}) Op({}) Pushing data".format(
             channeldata.id, channeldata.log_id, op_name)))
 
@@ -687,6 +701,20 @@ class ThreadChannel(Queue.PriorityQueue):
         return True
 
     def front(self, op_name=None, timeout=None):
+        """
+        从队列中 get channeldata，
+        队列中的数据格式为 (data_id, {op_name: channeldata})
+        若有多个消费者， 则在 output buffer 缓存数据，
+        直到同一
+
+
+        Args:
+            op_name:
+            timeout:
+
+        Returns:
+            resp: (data_id, {op_name: channeldata})
+        """
         _LOGGER.debug(self._log("Op({}) Getting data[?]; timeout(s)={}".format(op_name, timeout)))
 
         endtime = None

@@ -16,7 +16,7 @@ from pipeline.error_catch import CustomExceptionCode
 from utils.process_util import kill_stop_process_by_pid
 from utils.logger import get_logger
 
-_LOGGER = get_logger("D2LServing")
+_LOGGER = get_logger("Serving")
 
 precision_map = {
     "int8": torch.int8,
@@ -239,59 +239,25 @@ class LocalPredictor(object):
             if key in self.fetch_names_:
                 fetch_nams.append(key)
 
+        # 设置输入 tensor handlers
         input_names = self.predictor.get_input_names()
         for name in input_names:
-            if isinstance(feed[name], list) and not isinstance(feed[name][0], str):
-                feed[name] = np.array(feed[name]).reshape(self.feed_shapes_[name])
-            if self.feed_types_[name] == 0:
-                feed[name] = feed[name].astype("int64")
-            elif self.feed_types_[name] == 1:
-                feed[name] = feed[name].astype("float32")
-            elif self.feed_types_[name] == 2:
-                feed[name] = feed[name].astype("int32")
-            elif self.feed_types_[name] == 3:
-                feed[name] = feed[name].astype("float64")
-            elif self.feed_types_[name] == 4:
-                feed[name] = feed[name].astype("int16")
-            elif self.feed_types_[name] == 5:
-                feed[name] = feed[name].astype("float16")
-            elif self.feed_types_[name] == 6:
-                feed[name] = feed[name].astype("uint16")
-            elif self.feed_types_[name] == 7:
-                feed[name] = feed[name].astype("uint8")
-            elif self.feed_types_[name] == 8:
-                feed[name] = feed[name].astype("int8")
-            elif self.feed_types_[name] == 9:
-                feed[name] = feed[name].astype("bool")
-            elif self.feed_types_[name] == 10:
-                feed[name] = feed[name].astype("complex64")
-            elif self.feed_types_[name] == 11:
-                feed[name] = feed[name].astype("complex128")
-            elif isinstance(feed[name], list) and isinstance(feed[name][0], str):
-                pass
-            else:
-                raise ValueError("local predictor receives wrong data tyep")
-
-            # TODO input_tensor_handle 好像也没用到？ 还是说将tensor放到与predictor同一设备上？
-            input_tensor_handle = self.predictor.get_input_handle(name)
-            if "{}.lod".format(name) in feed:
-                input_tensor_handle.set_lod([feed["{}.lod".format(name)]])
             if not batch:
-                input_tensor_handle.copy_from_cpu(feed[name][np.newaxis, :])
+                self.predictor.set_input_handle(name, feed[name][np.newaxis, :])
             else:
-                input_tensor_handle.copy_from_cpu(feed[name])
-
-        # 设置输出 tensor handlers
-        output_tensor_handles = []
-        output_name_to_index_dict = {}
-        output_names = self.predictor.get_output_names()
-        for i, output_name in enumerate(output_names):
-            output_tensor_handle = self.predictor.get_output_handle(output_name)
-            output_tensor_handles.append(output_tensor_handle)
-            output_name_to_index_dict[output_name] = i
+                self.predictor.set_input_handle(name, feed[name])
 
         # 预测
         self.predictor.run()
+
+        # 获取输出 tensor handlers
+        output_tensor_handles = []
+        output_name_to_index_dict = {}
+        output_names = self.predictor.get_output_names()
+        for i, name in enumerate(output_names):
+            output_tensor_handle = self.predictor.get_output_handle(name)
+            output_tensor_handles.append(output_tensor_handle)
+            output_name_to_index_dict[name] = i
 
         outputs = []
         for output_tensor_handle in output_tensor_handles:
@@ -305,11 +271,7 @@ class LocalPredictor(object):
         if fetch is None:
             for i, name in enumerate(output_names):
                 fetch_map[name] = outputs[i]
-                if len(output_tensor_handles[i].lod()) > 0:
-                    fetch_map[name + ".lod"] = np.array(output_tensor_handles[i].lod()[0]).astype('int32')
         else:
-            # 因为 save_inference_model 接口会增加网络中 scale op，fetch_var 会不同于 prototxt 的。
-            # 因此兼容 v0.6.x 和之前的模型保存格式，并且兼容不匹配的结果
             fetch_match_num = 0
             for i, name in enumerate(fetch):
                 output_index = output_name_to_index_dict.get(name)
@@ -318,17 +280,8 @@ class LocalPredictor(object):
 
                 fetch_map[name] = outputs[output_index]
                 fetch_match_num += 1
-                if len(output_tensor_handles[output_index].lod()) > 0:
-                    fetch_map[name + ".lod"] = np.array(output_tensor_handles[output_index].lod()[0]).astype('int32')
 
             # Compatible with v0.6.x and lower versions model saving formats.
             if fetch_match_num == 0:
                 _LOGGER.debug("fetch match num is 0. Retrain the model please!")
-                for i, name in enumerate(fetch):
-                    if i >= outputs_len:
-                        break
-                    fetch_map[name] = outputs[i]
-                    if len(output_tensor_handles[i].lod()) > 0:
-                        fetch_map[name + ".lod"] = np.array(output_tensor_handles[i].lod()[0]).astype('int32')
-
         return fetch_map

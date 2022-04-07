@@ -19,7 +19,7 @@ from pipeline.error_catch import CustomExceptionCode, CustomException
 from pipeline.error_catch import CustomExceptionCode as ChannelDataErrCode
 from proto import pipeline_service_pb2, pipeline_service_pb2_grpc
 
-_LOGGER = get_logger()
+_LOGGER = get_logger("Serving")
 
 
 @contextlib.contextmanager
@@ -62,16 +62,15 @@ class PipelineServicer(pipeline_service_pb2_grpc.PipelineServiceServicer):
         _LOGGER.info("[PipelineServicer] succ init")
 
     def inference(self, request, context):
-        _LOGGER.info(
-            "(log_id={}) inference request name:{} self.name:{} time:{}".format(
-                request.logid, request.name, self._name, time.time()))
-        if request.name != "" and request.name != self._name:
-            _LOGGER.error("(log_id={}) name dismatch error. request.name:{}, server.name={}".format(
-                request.logid, request.name, self._name))
-            resp = pipeline_service_pb2.Response()
-            resp.error_no = ChannelDataErrCode.NO_SERVICE.value
-            resp.error_msg = "Failed to inference: Service name error."
-            return resp
+        _LOGGER.info("(log_id={}) inference  self.name:{} peer:{} time:{}".format(
+                request.logid, self._name, context.peer(),  time.time()))
+        # if request.name != "" and request.name != self._name:
+        #     _LOGGER.error("(log_id={}) name dismatch error. request.name:{}, server.name={}".format(
+        #         request.logid, request.name, self._name))
+        #     resp = pipeline_service_pb2.Response()
+        #     resp.error_no = ChannelDataErrCode.NO_SERVICE.value
+        #     resp.error_msg = "Failed to inference: Service name error."
+        #     return resp
         resp = self._dag_executor.call(request)
         return resp
 

@@ -233,49 +233,7 @@ class LocalServiceHandler(object):
         return self._model_config
 
     def _prepare_one_server(self, workdir, port, gpuid, thread_num, mem_optim, ir_optim, precision):
-        _LOGGER.debug("[LocalServiceHandler] _prepare_one_server() start")
-        from server.dag import OpMaker, OpSeqMaker
-        from server.server import Server
-        op_maker = OpMaker()
-        read_op = op_maker.create('general_reader')
-        general_infer_op = op_maker.create('general_infer')
-        general_response_op = op_maker.create('general_response')
-
-        op_seq_maker = OpSeqMaker()
-        op_seq_maker.add_op(read_op)
-        op_seq_maker.add_op(general_infer_op)
-        op_seq_maker.add_op(general_response_op)
-
-        _LOGGER.debug("[LocalServiceHandler] create one server.Server() ")
-        server = Server()
-        if self._device_name != "cpu":
-            if gpuid >= 0:
-                server.set_gpuid(gpuid)
-            # TODO: support arm or arm + xpu later
-            server.set_device(self._device_name)
-            if self._use_xpu:
-                server.set_xpu()
-            if self._use_lite:
-                server.set_lite()
-            if self._use_ascend_cl:
-                server.set_ascend_cl()
-
-        server.set_op_sequence(op_seq_maker.get_op_sequence())
-        server.set_num_threads(thread_num)
-        server.set_memory_optimize(mem_optim)
-        server.set_ir_optimize(ir_optim)
-        server.set_precision(precision)
-
-        server.load_model_config(self._model_config)
-        server.prepare_server(
-            workdir=workdir,
-            port=port,
-            device=self._device_name
-        )
-        if self._fetch_names is None:
-            self._fetch_names = server.get_fetch_list()
-        _LOGGER.debug("[LocalServiceHandler] return one server.Server(), end")
-        return server
+        _LOGGER.warning("[LocalServiceHandler] has not supported right now")
 
     def _start_one_server(self, service_idx):
         """ 启动一个服务 """
