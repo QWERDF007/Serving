@@ -1,0 +1,9 @@
+input_names: ['img']
+output_names: ['prediction']
+model_name: "resnet50"
+model_type: "rec"
+num_classes: 7
+input_size: [3,256,256]
+checkpoint_path: "E:/Workspaces/checkpoints/resnet50-v1-best.pth.tar"
+mean: [0.485, 0.456, 0.406]
+std: [0.229, 0.224, 0.225]
