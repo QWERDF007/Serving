@@ -3,7 +3,9 @@ syntax = "proto3";
 message Request {
   string id = 1;
   string logid = 2;
-  repeated bytes data = 3;
+  repeated string key = 3;
+  repeated bytes value = 4;
+  string clientip = 5;
 }
 
 message Response {
@@ -11,7 +13,8 @@ message Response {
   string logid = 2;
   int32 error_no = 3;
   string error_msg = 4;
-  repeated bytes data = 5;
+  repeated string key = 5;
+  repeated bytes value = 6;
 }
 
 service PipelineService {

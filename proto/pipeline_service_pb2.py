@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16pipeline_service.proto\"2\n\x07Request\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05logid\x18\x02 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x03 \x03(\x0c\"X\n\x08Response\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05logid\x18\x02 \x01(\t\x12\x10\n\x08\x65rror_no\x18\x03 \x01(\x05\x12\x11\n\terror_msg\x18\x04 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x05 \x03(\x0c\x32\x35\n\x0fPipelineService\x12\"\n\tinference\x12\x08.Request\x1a\t.Response\"\x00\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16pipeline_service.proto\"R\n\x07Request\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05logid\x18\x02 \x01(\t\x12\x0b\n\x03key\x18\x03 \x03(\t\x12\r\n\x05value\x18\x04 \x03(\x0c\x12\x10\n\x08\x63lientip\x18\x05 \x01(\t\"f\n\x08Response\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05logid\x18\x02 \x01(\t\x12\x10\n\x08\x65rror_no\x18\x03 \x01(\x05\x12\x11\n\terror_msg\x18\x04 \x01(\t\x12\x0b\n\x03key\x18\x05 \x03(\t\x12\r\n\x05value\x18\x06 \x03(\x0c\x32\x35\n\x0fPipelineService\x12\"\n\tinference\x12\x08.Request\x1a\t.Response\"\x00\x62\x06proto3')
 
 
 
@@ -39,9 +39,9 @@ if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   _REQUEST._serialized_start=26
-  _REQUEST._serialized_end=76
-  _RESPONSE._serialized_start=78
-  _RESPONSE._serialized_end=166
-  _PIPELINESERVICE._serialized_start=168
-  _PIPELINESERVICE._serialized_end=221
+  _REQUEST._serialized_end=108
+  _RESPONSE._serialized_start=110
+  _RESPONSE._serialized_end=212
+  _PIPELINESERVICE._serialized_start=214
+  _PIPELINESERVICE._serialized_end=267
 # @@protoc_insertion_point(module_scope)
