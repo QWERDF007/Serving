@@ -30,7 +30,7 @@ def set_logger_level(name="Serving", level: [int, str] = logging.INFO):
     # "[%(asctime)s] [%(name)s] [%(filename)s:%(lineno)d] [%(process)d] [%(thread)d] [%(levelname)1.1s] %(message)s"
     if level == logging.DEBUG:
         formatter = logging.Formatter(
-            "[%(asctime)s] [%(name)s] [%(filename)25s:%(lineno)5d] [%(levelname)1.1s] %(message)s")
+            "[%(asctime)s] [%(name)s] [%(process)6d] [%(thread)6d] [%(filename)25s:%(lineno)5d] [%(levelname)1.1s] %(message)s")
         for handler in logger.handlers:
             # handler.setLevel(level)
             handler.setFormatter(formatter)
