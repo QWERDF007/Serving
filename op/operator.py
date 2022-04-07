@@ -23,6 +23,7 @@ from pipeline.profiler import TimeProfiler
 from pipeline.util import NameGenerator
 from utils.process_util import kill_stop_process_by_pid
 from utils.logger import get_logger
+from utils.time_util import timestamp as _timestamp
 
 check_feed_dict = ParamVerify.check_feed_dict
 check_fetch_list = ParamVerify.check_fetch_list
@@ -440,7 +441,7 @@ class Op(object):
             os._exit(-1)
         channel.add_producer(self.name)
         self._outputs.append(channel)
-        _LOGGER.debug("op:{} add output_channel {}".format(self.name, channel))
+        _LOGGER.debug("op:{} add output_channel {} {}".format(self.name, channel.name, channel))
 
     def clean_output_channels(self):
         self._outputs = []
@@ -474,7 +475,7 @@ class Op(object):
 
     def process(self, feed_batch, typical_logid=0):
         """
-        process 步骤，发生 request 到推理服务或本地预测。
+        process 步骤，发送 request 到推理服务或本地预测。
         用户不需要重载本函数
 
         Args:
@@ -512,12 +513,11 @@ class Op(object):
 
         if self.client_type == "local_predictor":
             error_code, error_info = ChannelData.check_batch_npdata(feed_batch)
-            if error_code != 0:
+            if error_code != ChannelDataErrCode.OK.value:
                 _LOGGER.error(self._log(
                     "Failed to run process: {}. feed_batch must be npdata in process for local_predictor mode.".format(
                         error_info)))
                 return call_result, ChannelDataErrCode.TYPE_ERROR.value, "feed_batch must be npdata"
-
             call_result = self.client.predict(
                 feed=feed_batch[0],
                 fetch=self._fetch_names,
@@ -608,8 +608,7 @@ class Op(object):
             parsed_data[name] = data.parse()
             if client_need_profile:
                 profile_set |= data.profile_data_set
-        return (data_id, error_channeldata, parsed_data, client_need_profile,
-                profile_set, log_id)
+        return data_id, error_channeldata, parsed_data, client_need_profile, profile_set, log_id
 
     def _push_to_output_channels(self, data,
                                  channels,
@@ -687,7 +686,7 @@ class Op(object):
         Returns:
             线程列表
         """
-        _LOGGER.debug("[Op] start_with_thread()")
+        _LOGGER.debug("[Op] {} start_with_thread()".format(self.name))
         trace_buffer = None
         if self._tracer is not None:
             trace_buffer = self._tracer.data_buffer()
@@ -1103,7 +1102,7 @@ class Op(object):
                 for idx in range(batch_size):
                     try:
                         channeldata_dict = None
-                        front_start_time = int(round(_time() * 1000000))
+                        front_start_time = _timestamp()
                         if timeout is not None:
                             remaining = endtime - _time()
                             if remaining <= 0.0:
@@ -1141,8 +1140,8 @@ class Op(object):
         profile_dict = {}
         logid_dict = {}
         for channeldata_dict in batch:
-            (data_id, error_channeldata, parsed_data, client_need_profile, profile_set,
-             log_id) = self._parse_channeldata(channeldata_dict)
+            data_id, error_channeldata, parsed_data, client_need_profile, profile_set, log_id = \
+                self._parse_channeldata(channeldata_dict)
             if error_channeldata is None:
                 parsed_data_dict[data_id] = parsed_data
                 need_profile_dict[data_id] = client_need_profile
@@ -1153,7 +1152,6 @@ class Op(object):
                 # (error_channeldata with profile info)
                 self._push_to_output_channels(error_channeldata,
                                               output_channels)
-
         return parsed_data_dict, need_profile_dict, profile_dict, logid_dict
 
     def _run(self, concurrency_idx, input_channel, output_channels,
@@ -1250,14 +1248,14 @@ class Op(object):
         start, end = None, None
         trace_que = collections.deque()
         while True:
-            start = (int(round(_time() * 1000000)))
+            start = _timestamp()
             try:
                 channeldata_dict_batch = next(batch_generator)
             except ChannelStopError:
                 _LOGGER.debug("{} Stop.".format(op_info_prefix))
                 self._finalize(is_thread_op)
                 break
-            end = (int(round(_time() * 1000000)))
+            end = _timestamp()
             in_time = end - start
             _LOGGER.debug("op:{} in_time_end:{}".format(op_info_prefix, time.time()))
 
@@ -1275,7 +1273,7 @@ class Op(object):
                 continue
             _LOGGER.debug("op:{} parse_end:{}".format(op_info_prefix, time.time()))
 
-            front_cost = int(round(_time() * 1000000)) - start
+            front_cost = _timestamp()
             for data_id, parsed_data in parsed_data_dict.items():
                 _LOGGER.debug("(data_id={}) POP INPUT CHANNEL! op:{}, cost:{} ms".format(
                     data_id, self.name, front_cost / 1000.0))
@@ -1286,7 +1284,7 @@ class Op(object):
                 parsed_data_dict, op_info_prefix, logid_dict)
             end = profiler.record("prep#{}_1".format(op_info_prefix))
             prep_time = end - start
-            _LOGGER.debug("op:{} preprocess_end:{}, cost:{}".format(op_info_prefix, time.time(), prep_time))
+            _LOGGER.debug("op:{} preprocess_end:{}, cost:{} ms".format(op_info_prefix, time.time(), prep_time / 1000.0))
 
             try:
                 # 将错误请求放到输出 channel，跳过 process 和 postprocess 步骤
@@ -1310,8 +1308,8 @@ class Op(object):
             end = profiler.record("midp#{}_1".format(op_info_prefix))
             _LOGGER.info("prometheus inf count +1")
             midp_time = end - start
-            _LOGGER.debug("op:{} process_end:{}, cost:{}".format(
-                op_info_prefix, time.time(), midp_time))
+            _LOGGER.debug("op:{} process_end:{}, cost:{} ms".format(
+                op_info_prefix, time.time(), midp_time / 1000.0))
             try:
                 for data_id, err_channeldata in err_channeldata_dict.items():
                     self._push_to_output_channels(
@@ -1333,8 +1331,8 @@ class Op(object):
             end = profiler.record("postp#{}_1".format(op_info_prefix))
             postp_time = end - start
             after_postp_time = _time()
-            _LOGGER.debug("op:{} postprocess_end:{}, cost:{}".format(
-                op_info_prefix, time.time(), postp_time))
+            _LOGGER.debug("op:{} postprocess_end:{}, cost:{} ms".format(
+                op_info_prefix, time.time(), postp_time / 1000.0))
             try:
                 for data_id, err_channeldata in err_channeldata_dict.items():
                     self._push_to_output_channels(
@@ -1350,7 +1348,7 @@ class Op(object):
                 continue
 
             # push data to channel (if run succ)
-            start = int(round(_time() * 1000000))
+            start = _timestamp()
             try:
                 profile_str = profiler.gen_profile_str()
                 if self.is_jump_op() is True and self.check_jumping(postped_data_dict) is True:
@@ -1388,9 +1386,9 @@ class Op(object):
                 self._finalize(is_thread_op)
                 break
 
-            end = int(round(_time() * 1000000))
+            end = _timestamp()
             out_time = end - start
-            after_outchannel_time = int(round(_time() * 1000000))
+            after_outchannel_time = _timestamp()
             if trace_buffer is not None:
                 trace_que.append({
                     "name": self.name,
@@ -1531,7 +1529,25 @@ class RequestOp(Op):
                           as exception.
             prod_errinfo: "" default
         """
-        pass
+        _LOGGER.debug("[RequestOp] unpack_request_package() start()")
+        dict_data = {}
+        log_id = None
+        if request is None:
+            _LOGGER.critical("request is None")
+            raise ValueError("request is None")
+
+        # unpack key/value string list
+        for idx, key in enumerate(request.key):
+            dict_data[key] = request.value[idx]
+        log_id = request.logid
+
+        # unpack proto.tensors data.
+
+
+        _LOGGER.info("RequestOp unpack one request. log_id:{}, clientip:{}, time:{}".format(
+            log_id, request.clientip, time.time()))
+
+        return dict_data, log_id, None, ""
 
 
 class ResponseOp(Op):
@@ -1583,12 +1599,12 @@ class ResponseOp(Op):
             elif channeldata.datatype == ChannelDataType.DICT.value:
                 feed = channeldata.parse()
                 for name, var in feed.items():
-                    if not isinstance(var, str):
-                        error_code = ChannelDataErrCode.TYPE_ERROR.value
-                        error_info = self._log("fetch var type must be str({}).".format(type(var)))
-                        _LOGGER.error("(logid={}) Failed to pack RPC response package: {}".format(
-                            channeldata.id, resp.error_msg))
-                        break
+                    # if not isinstance(var, str):
+                    #     error_code = ChannelDataErrCode.TYPE_ERROR.value
+                    #     error_info = self._log("fetch var type must be str({}).".format(type(var)))
+                    #     _LOGGER.error("(logid={}) Failed to pack RPC response package: {}".format(
+                    #         channeldata.id, error_info))
+                    #     break
                     resp.value.append(var)
                     resp.key.append(name)
             else:
