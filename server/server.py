@@ -25,7 +25,7 @@ def server_args():
 
 class Server(object):
     def __init__(self, yml_file):
-        self._server = PipelineServer()
+        self._server = PipelineServer("Serving")
         self._app_instance = None
         # self.init_app()
         self._prepare_server(yml_file)
